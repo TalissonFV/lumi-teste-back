@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
 import { PdfExtractService } from './pdf-extract/pdf-extract.service';
+import { readdirSync } from 'fs';
 
 @Controller('pdf')
 export class AppController {
@@ -11,8 +12,16 @@ export class AppController {
 
   @Get('extrair')
   async extrairPdf() {
-    return await this.pdfService.extractData(
-      'src/assets/pdfs/Instalacao_3001116735/3001116735-01-2024.pdf',
-    );
+    const pdfData = [];
+    const files = readdirSync('./src/assets/pdfs/Instalacao_3001116735');
+    for (const file of files) {
+      pdfData.push(
+        await this.pdfService.extractData(
+          `src/assets/pdfs/Instalacao_3001116735/${file}`,
+        ),
+      );
+    }
+
+    return pdfData;
   }
 }

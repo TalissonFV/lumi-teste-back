@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as pdf from 'pdf-parse';
-import * as fs from 'fs';
+import { readFileSync } from 'fs';
 import {
   fixStringToReais,
   removeNonNumericCharacters,
@@ -12,10 +12,9 @@ export class PdfExtractService {
 
   async extractData(filePath: string): Promise<any> {
     try {
-      const fileBuffer = fs.readFileSync(filePath);
+      const fileBuffer = readFileSync(filePath);
       const data = await pdf(fileBuffer);
       const text = data.text;
-      this.logger.debug(`PDF extraído: ${data.text}`);
 
       const extractedData = this.parseExtractedText(text);
 
@@ -60,7 +59,9 @@ export class PdfExtractService {
         );
       }
       if (line.includes('TOTAL')) {
-        extractedData.total = fixStringToReais(line.split(' ')[8]);
+        extractedData.total = fixStringToReais(
+          line.split(' ').filter((item) => item !== '')[1],
+        );
       }
     });
 
@@ -72,11 +73,12 @@ export class PdfExtractService {
           ) + parseInt(removeNonNumericCharacters(extractedData.qtdEnergiaSCEE))
         : 0;
 
-    extractedData.valorTotalSemGD = (
-      extractedData.valorEnergiaEletrica +
-      extractedData.valorEnergiaSCEE +
-      extractedData.valorContribuicaoIlumPublicaMunicipal
-    ).toFixed(2);
+    extractedData.valorTotalSemGD =
+      (
+        extractedData.valorEnergiaEletrica +
+        extractedData.valorEnergiaSCEE +
+        extractedData.valorContribuicaoIlumPublicaMunicipal
+      ).toFixed(2) * 1;
 
     this.logger.debug(`Dados extraídos: ${JSON.stringify(extractedData)}`);
     return extractedData;
