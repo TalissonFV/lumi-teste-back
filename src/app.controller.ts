@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
-import { PdfExtractService } from './pdf-extract/pdf-extract.service';
+import { PdfExtractService } from './services/pdf-extract/pdf-extract.service';
 import { readdirSync } from 'fs';
 
 @Controller('pdf')
