@@ -1,14 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as pdf from 'pdf-parse';
 import { readFileSync } from 'fs';
-import {
-  fixStringToReais,
-  removeNonNumericCharacters,
-} from '../utils/numberParser';
+import { PrismaService } from '../prisma/prisma.service';
+import { fixStringToReais } from '../../utils/numberParser';
 
 @Injectable()
 export class PdfExtractService {
   private readonly logger = new Logger(PdfExtractService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
 
   async extractData(filePath: string): Promise<any> {
     try {
@@ -18,11 +18,33 @@ export class PdfExtractService {
 
       const extractedData = this.parseExtractedText(text);
 
+      await this.saveFatura(extractedData);
+
       return extractedData;
     } catch (error) {
       this.logger.error(`Erro ao extrair dados do PDF: ${error.message}`);
       throw new Error('Falha ao extrair dados do PDF.');
     }
+  }
+
+  private async saveFatura(data: any): Promise<void> {
+    await this.prisma.fatura.create({
+      data: {
+        numeroCliente: data.numeroCliente,
+        mesFatura: data.mesFatura,
+        qtdEnergiaEletrica: data.qtdEnergiaEletrica,
+        qtdEnergiaSCEE: data.qtdEnergiaSCEE,
+        qtdEnergiaCompensada: data.qtdEnergiaCompensada,
+        consumoEnergiaEletrica: data.consumoEnergiaEletrica,
+        valorEnergiaEletrica: data.valorEnergiaEletrica,
+        valorEnergiaSCEE: data.valorEnergiaSCEE,
+        valorEnergiaCompensada: data.valorEnergiaCompensada,
+        valorContribuicaoIlumPublicaMunicipal:
+          data.valorContribuicaoIlumPublicaMunicipal,
+        valorTotalSemGD: data.valorTotalSemGD,
+        total: data.total,
+      },
+    });
   }
 
   private parseExtractedText(text: string): any {
@@ -38,17 +60,17 @@ export class PdfExtractService {
       }
       if (line.includes('Energia ElétricakWh')) {
         const lineContent = line.split(' ').filter((item) => item !== '');
-        extractedData.qtdEnergiaEletrica = lineContent[2];
+        extractedData.qtdEnergiaEletrica = parseInt(lineContent[2]);
         extractedData.valorEnergiaEletrica = fixStringToReais(lineContent[4]);
       }
       if (line.includes('Energia SCEE s/ ICMSkWh')) {
         const lineContent = line.split(' ').filter((item) => item !== '');
-        extractedData.qtdEnergiaSCEE = lineContent[4];
+        extractedData.qtdEnergiaSCEE = parseInt(lineContent[4]);
         extractedData.valorEnergiaSCEE = fixStringToReais(lineContent[6]);
       }
       if (line.includes('Energia compensada GD IkWh')) {
         const lineContent = line.split(' ').filter((item) => item !== '');
-        extractedData.qtdEnergiaCompensada = lineContent[4];
+        extractedData.qtdEnergiaCompensada = parseInt(lineContent[4]);
         extractedData.valorEnergiaCompensada = fixStringToReais(lineContent[6]);
       }
 
@@ -66,12 +88,7 @@ export class PdfExtractService {
     });
 
     extractedData.consumoEnergiaEletrica =
-      extractedData.qtdEnergiaEletrica !== undefined &&
-      extractedData.qtdEnergiaSCEE !== undefined
-        ? parseInt(
-            removeNonNumericCharacters(extractedData.qtdEnergiaEletrica),
-          ) + parseInt(removeNonNumericCharacters(extractedData.qtdEnergiaSCEE))
-        : 0;
+      extractedData.qtdEnergiaEletrica + extractedData.qtdEnergiaSCEE;
 
     extractedData.valorTotalSemGD =
       (
@@ -80,7 +97,6 @@ export class PdfExtractService {
         extractedData.valorContribuicaoIlumPublicaMunicipal
       ).toFixed(2) * 1;
 
-    this.logger.debug(`Dados extraídos: ${JSON.stringify(extractedData)}`);
     return extractedData;
   }
 }
